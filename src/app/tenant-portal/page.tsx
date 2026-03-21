@@ -18,7 +18,6 @@ import {
   Paperclip,
   Phone,
   Send,
-  Share,
   User,
   X,
 } from "lucide-react";
@@ -108,7 +107,7 @@ export default function TenantPortalPage() {
 
   const handleInstallClick = async () => {
     if (installPrompt) {
-      (installPrompt as { prompt(): void }).prompt();
+      (installPrompt as unknown as { prompt(): void }).prompt();
       setInstallPrompt(null);
     } else if (showIOSInstall) {
       setShowIOSInstall(false);
