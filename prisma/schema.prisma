@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("LANDLORD")
+  avatar    String   @default("/avatars/default.svg")
+  createdAt DateTime @default(now())
+}
+
+model Property {
+  id         String      @id @default(cuid())
+  address    String      @unique
+  apartments Apartment[]
+  createdAt  DateTime    @default(now())
+}
+
+model Apartment {
+  id         String    @id @default(cuid())
+  unit       String
+  propertyId String
+  property   Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenancies  Tenancy[]
+  createdAt  DateTime  @default(now())
+
+  @@unique([propertyId, unit])
+}
+
+model Tenant {
+  id        String    @id @default(cuid())
+  name      String
+  dob       DateTime
+  phone     String?
+  email     String?
+  tenancies Tenancy[]
+  createdAt DateTime  @default(now())
+}
+
+model Tenancy {
+  id          String     @id @default(cuid())
+  apartmentId String
+  apartment   Apartment  @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  monthlyRent Float
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean    @default(true)
+  payments    Payment[]
+  documents   Document[]
+  createdAt   DateTime   @default(now())
+}
+
+model Payment {
+  id                String             @id @default(cuid())
+  tenancyId         String
+  tenancy           Tenancy            @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  amount            Float
+  dueDate           DateTime
+  paidAmount        Float              @default(0)
+  paidDate          DateTime?
+  note              String?
+  paymentSubmissions PaymentSubmission[]
+  createdAt          DateTime            @default(now())
+}
+
+model PaymentSubmission {
+  id         String   @id @default(cuid())
+  paymentId  String
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount     Float
+  tenantName String
+  method     String   @default("Zelle")
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  tenancyId String
+  tenancy   Tenancy  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  name      String
+  filePath  String
+  fileType  String
+  isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
