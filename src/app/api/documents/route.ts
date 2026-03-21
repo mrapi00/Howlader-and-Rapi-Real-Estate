@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { put, del, getDownloadUrl } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -21,10 +21,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // If filePath is a Vercel Blob URL, generate a temporary download URL
+  // If filePath is a Vercel Blob URL, fetch and serve the file
   if (doc.filePath.startsWith("http")) {
-    const downloadUrl = await getDownloadUrl(doc.filePath);
-    return NextResponse.redirect(downloadUrl);
+    const blobRes = await fetch(doc.filePath, {
+      headers: {
+        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+      },
+    });
+    if (!blobRes.ok) {
+      return NextResponse.json({ error: "File not found in storage" }, { status: 404 });
+    }
+    const fileBuffer = await blobRes.arrayBuffer();
+    return new NextResponse(fileBuffer, {
+      headers: {
+        "Content-Type": doc.fileType,
+        "Content-Disposition": `inline; filename="${doc.name}"`,
+      },
+    });
   }
 
   // Legacy local file support (dev mode)
