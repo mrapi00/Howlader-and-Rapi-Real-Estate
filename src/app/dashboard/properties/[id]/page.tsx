@@ -170,7 +170,12 @@ export default function PropertyDetailPage() {
     formData.append("file", file);
     formData.append("tenancyId", tenancyId);
     formData.append("isPrivate", String(isPrivate));
-    await fetch("/api/documents", { method: "POST", body: formData });
+    const res = await fetch("/api/documents", { method: "POST", body: formData });
+    if (!res.ok) {
+      const data = await res.json();
+      alert(`Upload failed: ${data.error || "Unknown error"}`);
+      return;
+    }
     fetchProperty();
   };
 

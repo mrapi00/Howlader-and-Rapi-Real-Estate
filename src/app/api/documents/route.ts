@@ -46,46 +46,54 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const formData = await req.formData();
-  const file = formData.get("file") as File;
-  const tenancyId = formData.get("tenancyId") as string;
-  const isPrivate = formData.get("isPrivate") === "true";
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const tenancyId = formData.get("tenancyId") as string;
+    const isPrivate = formData.get("isPrivate") === "true";
 
-  if (!file || !tenancyId) {
-    return NextResponse.json({ error: "File and tenancyId required" }, { status: 400 });
-  }
+    if (!file || !tenancyId) {
+      return NextResponse.json({ error: "File and tenancyId required" }, { status: 400 });
+    }
 
-  let filePath: string;
+    let filePath: string;
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    // Production: upload to Vercel Blob
-    const blob = await put(`documents/${tenancyId}/${Date.now()}-${file.name}`, file, {
-      access: "public",
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      // Production: upload to Vercel Blob
+      const blob = await put(`documents/${tenancyId}/${Date.now()}-${file.name}`, file, {
+        access: "public",
+      });
+      filePath = blob.url;
+    } else {
+      // Dev: save locally
+      const { writeFile, mkdir } = await import("fs/promises");
+      const uploadsDir = path.join(process.cwd(), "uploads", tenancyId);
+      await mkdir(uploadsDir, { recursive: true });
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fileName = `${Date.now()}-${file.name}`;
+      filePath = path.join("uploads", tenancyId, fileName);
+      await writeFile(path.join(process.cwd(), filePath), buffer);
+    }
+
+    const doc = await prisma.document.create({
+      data: {
+        tenancyId,
+        name: file.name,
+        filePath,
+        fileType: file.type,
+        isPrivate,
+      },
     });
-    filePath = blob.url;
-  } else {
-    // Dev: save locally
-    const { writeFile, mkdir } = await import("fs/promises");
-    const uploadsDir = path.join(process.cwd(), "uploads", tenancyId);
-    await mkdir(uploadsDir, { recursive: true });
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fileName = `${Date.now()}-${file.name}`;
-    filePath = path.join("uploads", tenancyId, fileName);
-    await writeFile(path.join(process.cwd(), filePath), buffer);
+
+    return NextResponse.json(doc);
+  } catch (err) {
+    console.error("Document upload error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Upload failed" },
+      { status: 500 }
+    );
   }
-
-  const doc = await prisma.document.create({
-    data: {
-      tenancyId,
-      name: file.name,
-      filePath,
-      fileType: file.type,
-      isPrivate,
-    },
-  });
-
-  return NextResponse.json(doc);
 }
 
 export async function DELETE(req: NextRequest) {
