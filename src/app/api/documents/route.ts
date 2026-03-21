@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { put, del } from "@vercel/blob";
+import { put, del, getDownloadUrl } from "@vercel/blob";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -21,9 +21,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // If filePath is a URL (Vercel Blob), redirect to it
+  // If filePath is a Vercel Blob URL, generate a temporary download URL
   if (doc.filePath.startsWith("http")) {
-    return NextResponse.redirect(doc.filePath);
+    const downloadUrl = await getDownloadUrl(doc.filePath);
+    return NextResponse.redirect(downloadUrl);
   }
 
   // Legacy local file support (dev mode)
@@ -59,9 +60,9 @@ export async function POST(req: NextRequest) {
     let filePath: string;
 
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      // Production: upload to Vercel Blob
+      // Production: upload to Vercel Blob (private store)
       const blob = await put(`documents/${tenancyId}/${Date.now()}-${file.name}`, file, {
-        access: "public",
+        access: "private",
       });
       filePath = blob.url;
     } else {
@@ -106,10 +107,8 @@ export async function DELETE(req: NextRequest) {
   const doc = await prisma.document.findUnique({ where: { id } });
   if (doc) {
     if (doc.filePath.startsWith("http")) {
-      // Vercel Blob
       try { await del(doc.filePath); } catch { /* already deleted */ }
     } else {
-      // Local file
       try {
         const { unlink } = await import("fs/promises");
         await unlink(path.join(process.cwd(), doc.filePath));
