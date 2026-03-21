@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Clock,
   DollarSign,
+  Download,
   FileText,
   Filter,
   Home,
@@ -17,10 +18,10 @@ import {
   Paperclip,
   Phone,
   Send,
+  Share,
   User,
   X,
 } from "lucide-react";
-import InstallPrompt from "@/components/InstallPrompt";
 
 interface PropertyOption {
   id: string;
@@ -80,6 +81,41 @@ export default function TenantPortalPage() {
 
   // Cancel confirmation state
   const [cancelConfirm, setCancelConfirm] = useState<{ submissionId: string; paymentId: string } | null>(null);
+
+  // Install app state
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showIOSInstall, setShowIOSInstall] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)").matches;
+    setIsStandalone(standalone);
+    if (standalone) return;
+
+    // Android/Chrome
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+
+    // iOS Safari
+    const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+    if (isIOS) setShowIOSInstall(true);
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      (installPrompt as { prompt(): void }).prompt();
+      setInstallPrompt(null);
+    } else if (showIOSInstall) {
+      setShowIOSInstall(false);
+      // Show a temporary alert with instructions
+      alert('To install this app:\n\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+    }
+  };
 
   // Restore session on page load
   useEffect(() => {
@@ -239,20 +275,31 @@ export default function TenantPortalPage() {
                 <p className="text-xs text-gray-500">Welcome, {tenantData.tenant.name}</p>
               </div>
             </div>
-            <button
-              onClick={() => {
-                setTenantData(null);
-                setDob("");
-                setDateFrom("");
-                setDateTo("");
-                setCurrentPage(1);
-                sessionStorage.removeItem("tenantSession");
-              }}
-              className="btn-ghost flex items-center gap-2 text-xs text-gray-500"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
-            </button>
+            <div className="flex items-center gap-2">
+              {!isStandalone && (installPrompt || showIOSInstall) && (
+                <button
+                  onClick={handleInstallClick}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Install App
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setTenantData(null);
+                  setDob("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setCurrentPage(1);
+                  sessionStorage.removeItem("tenantSession");
+                }}
+                className="btn-ghost flex items-center gap-2 text-xs text-gray-500"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
 
@@ -683,7 +730,6 @@ export default function TenantPortalPage() {
           )}
         </div>
 
-        <InstallPrompt />
       </div>
     );
   }
