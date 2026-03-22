@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const RAPIDAPI_HOST = "redfin-scraper1.p.rapidapi.com";
-const BASE_URL = `https://${RAPIDAPI_HOST}`;
+const BASE_URL = `https://${RAPIDAPI_HOST}/api/redfin`;
 
 async function redfinFetch(path: string, params: Record<string, string>, apiKey: string) {
   const url = `${BASE_URL}${path}?${new URLSearchParams(params)}`;
@@ -16,45 +16,19 @@ async function redfinFetch(path: string, params: Record<string, string>, apiKey:
   return res.json();
 }
 
-async function lookupRedfinIds(
+// Search by full address to get Redfin property ID directly
+async function lookupRedfinId(
   address: string,
+  city: string,
+  state: string,
   zipCode: string,
   apiKey: string
-): Promise<{ propertyId: number; listingId: number } | null> {
-  const locData = await redfinFetch("/redfin/locations", { query: zipCode }, apiKey);
-  const locations = locData?.data?.locations;
-  if (!locations?.length) return null;
-
-  const zipRegion = locations.find(
-    (l: { region_type: string }) => l.region_type === "2"
-  ) || locations[0];
-
-  const regionId = zipRegion.region_id?.replace(/^\d+_/, "") || zipRegion.region_id;
-  const regionType = zipRegion.region_type;
-
-  const searchData = await redfinFetch("/redfin/search", {
-    region_id: regionId,
-    region_type: regionType,
-    num_homes: "350",
-    status: "9",
-  }, apiKey);
-
-  const homes = searchData?.data?.homes || searchData?.homes || [];
-  if (!homes.length) return null;
-
-  const addrLower = address.toLowerCase().replace(/\s+/g, " ").trim();
-  const match = homes.find((h: { address?: string; streetAddress?: string }) => {
-    const homeAddr = (h.address || h.streetAddress || "").toLowerCase().replace(/\s+/g, " ").trim();
-    return homeAddr.includes(addrLower) || addrLower.includes(homeAddr);
-  });
-
-  if (!match) return null;
-
-  const propertyId = match.propertyId || match.property_id;
-  const listingId = match.listingId || match.listing_id;
-  if (!propertyId || !listingId) return null;
-
-  return { propertyId: Number(propertyId), listingId: Number(listingId) };
+): Promise<number | null> {
+  const query = `${address}, ${city}, ${state} ${zipCode}`;
+  const locData = await redfinFetch("/locations", { query }, apiKey);
+  const loc = locData?.data?.locations?.[0];
+  if (!loc || !loc.region_id) return null;
+  return Number(loc.region_id);
 }
 
 // ── Auto-pay: runs only on the last day of the month ──
@@ -122,36 +96,31 @@ async function runValuation(apiKey: string) {
 
   for (const prop of properties) {
     try {
-      let redfinPropId = prop.redfinPropertyId;
-      let redfinListId = prop.redfinListingId;
+      let redfinId = prop.redfinPropertyId;
 
-      if (!redfinPropId || !redfinListId) {
-        const ids = await lookupRedfinIds(prop.address, prop.zipCode!, apiKey);
-        if (!ids) {
+      // Look up Redfin ID by full address if not cached
+      if (!redfinId) {
+        redfinId = await lookupRedfinId(
+          prop.address, prop.city!, prop.state!, prop.zipCode!, apiKey
+        );
+        if (!redfinId) {
           results.push({ property: prop.address, error: "Property not found on Redfin" });
           continue;
         }
-        redfinPropId = ids.propertyId;
-        redfinListId = ids.listingId;
-
         await prisma.property.update({
           where: { id: prop.id },
-          data: {
-            redfinPropertyId: redfinPropId,
-            redfinListingId: redfinListId,
-          },
+          data: { redfinPropertyId: redfinId, redfinListingId: redfinId },
         });
       }
 
-      const valData = await redfinFetch("/redfin/valuation", {
-        property_id: String(redfinPropId),
-        listing_id: String(redfinListId),
+      // Get valuation (property_id and listing_id are the same for address lookups)
+      const valData = await redfinFetch("/valuation", {
+        property_id: String(redfinId),
+        listing_id: String(redfinId),
       }, apiKey);
 
       const estimate =
-        valData?.data?.predictedValue ||
-        valData?.data?.avm?.predictedValue ||
-        valData?.data?.estimatedValue;
+        valData?.data?.predictedValue || valData?.data?.lastSoldPrice;
 
       if (!estimate) {
         results.push({ property: prop.address, error: "No valuation estimate returned" });
