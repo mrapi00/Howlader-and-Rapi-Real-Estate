@@ -18,10 +18,16 @@ model User {
 }
 
 model Property {
-  id         String      @id @default(cuid())
-  address    String      @unique
-  apartments Apartment[]
-  createdAt  DateTime    @default(now())
+  id                String      @id @default(cuid())
+  address           String      @unique
+  city              String?
+  state             String?
+  zipCode           String?
+  redfinPropertyId  Int?
+  redfinListingId   Int?
+  apartments        Apartment[]
+  valuations        PropertyValuation[]
+  createdAt         DateTime    @default(now())
 }
 
 model Apartment {
@@ -106,4 +112,14 @@ model PaymentTransaction {
   paidDate  DateTime
   note      String?
   createdAt DateTime @default(now())
+}
+
+model PropertyValuation {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  value      Float
+  fetchedAt  DateTime @default(now())
+
+  @@unique([propertyId, fetchedAt])
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   Building2,
@@ -10,6 +11,7 @@ import {
   TrendingUp,
   DollarSign,
   ArrowUpRight,
+  Landmark,
 } from "lucide-react";
 
 interface DashboardStats {
@@ -30,13 +32,27 @@ interface DashboardStats {
   }[];
 }
 
+const nameMap: Record<string, string> = {
+  "mhowlader33@yahoo.com": "Moslah",
+  "mrapi105@gmail.com": "Mahmudul",
+};
+
 export default function DashboardPage() {
+  const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [portfolioValue, setPortfolioValue] = useState<number | null>(null);
+  const userName = session?.user?.email ? nameMap[session.user.email] ?? "there" : "there";
 
   useEffect(() => {
     fetch("/api/dashboard")
       .then((r) => r.json())
       .then(setStats);
+    fetch("/api/valuation")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.totalValue > 0) setPortfolioValue(data.totalValue);
+      })
+      .catch(() => {});
   }, []);
 
   if (!stats) {
@@ -59,7 +75,7 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="page-title">Dashboard</h1>
+          <h1 className="page-title">Welcome back, {userName}</h1>
           <p className="text-gray-500 text-sm mt-1">Overview of your portfolio</p>
         </div>
         <Link href="/dashboard/properties" className="btn-primary flex items-center gap-2">
@@ -104,7 +120,7 @@ export default function DashboardPage() {
               <TrendingUp className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Monthly Revenue</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Monthly Rent</p>
               <p className="text-2xl font-bold text-gray-900">${stats.totalMonthlyRent.toLocaleString()}<span className="text-sm font-semibold text-gray-400">/mo</span></p>
             </div>
           </div>
@@ -165,6 +181,22 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Portfolio Value */}
+      {portfolioValue !== null && (
+        <div className="stat-card mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+              <Landmark className="w-5 h-5 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Portfolio Value</p>
+              <p className="text-2xl font-bold text-gray-900">${portfolioValue.toLocaleString()}</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Based on Redfin AVM estimate</p>
+        </div>
+      )}
 
       {/* Recent Payments */}
       <div className="glass-card-solid p-6">
