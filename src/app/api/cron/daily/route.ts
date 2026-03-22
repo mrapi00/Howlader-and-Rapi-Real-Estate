@@ -119,11 +119,11 @@ async function runValuation(apiKey: string) {
         listing_id: String(redfinId),
       }, apiKey);
 
-      const estimate =
-        valData?.data?.predictedValue || valData?.data?.lastSoldPrice;
+      const estimate = valData?.data?.predictedValue;
 
       if (!estimate) {
-        results.push({ property: prop.address, error: "No valuation estimate returned" });
+        // Redfin has no AVM for this property — skip to preserve any manual valuation
+        results.push({ property: prop.address, error: "No Redfin AVM available, keeping existing value" });
         continue;
       }
 
