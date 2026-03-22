@@ -44,6 +44,10 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      valuations: {
+        orderBy: { fetchedAt: "desc" },
+        take: 1,
+      },
     },
   });
 

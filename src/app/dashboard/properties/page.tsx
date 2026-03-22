@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Plus, Settings, Trash2, User, X } from "lucide-react";
+import { Building2, Plus, Settings, Trash2, User, X, TrendingUp } from "lucide-react";
 
 interface Property {
   id: string;
@@ -16,6 +16,10 @@ interface Property {
       tenant: { name: string };
       monthlyRent: number;
     }[];
+  }[];
+  valuations: {
+    value: number;
+    fetchedAt: string;
   }[];
 }
 
@@ -133,6 +137,7 @@ export default function PropertiesPage() {
           const occupied = prop.apartments.filter((a) => a.tenancies.some((t) => t.isActive)).length;
           const total = prop.apartments.length;
           const occupancyPct = total > 0 ? Math.round((occupied / total) * 100) : 0;
+          const latestValuation = prop.valuations?.[0];
 
           return (
             <div key={prop.id} className="glass-card-solid p-6 group animate-slide-up">
@@ -157,6 +162,17 @@ export default function PropertiesPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Valuation */}
+              {latestValuation && (
+                <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-violet-50 rounded-lg">
+                  <TrendingUp className="w-4 h-4 text-violet-600 flex-shrink-0" />
+                  <p className="text-sm font-semibold text-violet-700">
+                    ${Math.round(latestValuation.value).toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-violet-400 ml-auto">Redfin Est.</p>
+                </div>
+              )}
 
               {/* Occupancy bar */}
               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
