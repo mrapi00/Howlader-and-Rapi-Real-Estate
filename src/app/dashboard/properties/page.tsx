@@ -138,6 +138,10 @@ export default function PropertiesPage() {
           const total = prop.apartments.length;
           const occupancyPct = total > 0 ? Math.round((occupied / total) * 100) : 0;
           const latestValuation = prop.valuations?.[0];
+          const totalRent = prop.apartments.reduce((sum, a) => {
+            const active = a.tenancies.find((t) => t.isActive);
+            return sum + (active ? active.monthlyRent : 0);
+          }, 0);
 
           return (
             <div key={prop.id} className="glass-card-solid p-6 group animate-slide-up">
@@ -151,6 +155,11 @@ export default function PropertiesPage() {
                     <p className="text-xs text-gray-500 mt-0.5">
                       {total} units &middot; {occupied} occupied &middot; {occupancyPct}% occupancy
                     </p>
+                    {totalRent > 0 && (
+                      <p className="text-xs font-semibold text-emerald-600 mt-0.5">
+                        ${totalRent.toLocaleString()}/mo
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">

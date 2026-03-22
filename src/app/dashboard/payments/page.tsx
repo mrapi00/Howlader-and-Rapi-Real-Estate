@@ -574,7 +574,7 @@ export default function PaymentsPage() {
                       ${p.paidAmount.toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold">
-                      <span className={balance > 0 ? "text-red-600" : "text-emerald-600"}>
+                      <span className={balance > 0 ? (isPast ? "text-red-600" : "text-amber-600") : "text-emerald-600"}>
                         ${balance.toLocaleString()}
                       </span>
                     </td>
