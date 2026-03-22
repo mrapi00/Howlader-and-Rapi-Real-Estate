@@ -24,6 +24,7 @@ import {
   Plus,
   Save,
   Trash2,
+  Download,
   Upload,
   User,
   X,
@@ -128,6 +129,28 @@ export default function TenantDetailPage() {
 
   const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmission[]>([]);
   const [processingSubmissionId, setProcessingSubmissionId] = useState<string | null>(null);
+
+  // Document preview state
+  const [viewingDoc, setViewingDoc] = useState<{ id: string; name: string; fileType: string } | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadDoc = async (doc: { id: string; name: string }) => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/documents?id=${doc.id}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const fetchPendingSubmissions = () => {
     fetch(`/api/payment-submissions?tenantId=${params.id}`)
@@ -1000,13 +1023,12 @@ export default function TenantDetailPage() {
                       )}
                     </div>
                     <div>
-                      <a
-                        href={`/api/documents?id=${doc.id}`}
-                        target="_blank"
-                        className="text-sm font-semibold text-gray-800 hover:text-brand-600 transition-colors"
+                      <button
+                        onClick={() => setViewingDoc(doc)}
+                        className="text-sm font-semibold text-gray-800 hover:text-brand-600 transition-colors text-left"
                       >
                         {doc.name}
-                      </a>
+                      </button>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-xs text-gray-400">
                           {new Date(doc.createdAt).toLocaleDateString()}
@@ -1043,6 +1065,71 @@ export default function TenantDetailPage() {
               </label>
             </div>
           </div>
+
+          {/* Document Preview Modal */}
+          {viewingDoc && (
+            <div
+              className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+              onClick={() => setViewingDoc(null)}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {viewingDoc.fileType.startsWith("image") ? (
+                      <Image className="w-4 h-4 text-brand-500 shrink-0" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-brand-500 shrink-0" />
+                    )}
+                    <p className="text-sm font-semibold text-gray-800 truncate">{viewingDoc.name}</p>
+                  </div>
+                  <button
+                    onClick={() => setViewingDoc(null)}
+                    className="w-9 h-9 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center text-gray-500 hover:text-red-600 transition-colors shrink-0 ml-3"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-auto p-5">
+                  {viewingDoc.fileType.startsWith("image") ? (
+                    <img
+                      src={`/api/documents?id=${viewingDoc.id}`}
+                      alt={viewingDoc.name}
+                      className="w-full rounded-xl"
+                    />
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <FileText className="w-8 h-8 text-brand-500" />
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 mb-1">{viewingDoc.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {viewingDoc.fileType.includes("pdf") ? "PDF Document" : viewingDoc.fileType}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="px-5 py-4 border-t border-gray-100 flex gap-3 shrink-0">
+                  <button
+                    onClick={() => downloadDoc(viewingDoc)}
+                    disabled={downloading}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2 py-2.5 disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    {downloading ? "Saving..." : "Save to Device"}
+                  </button>
+                  <button
+                    onClick={() => setViewingDoc(null)}
+                    className="btn-secondary flex-1 py-2.5"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
