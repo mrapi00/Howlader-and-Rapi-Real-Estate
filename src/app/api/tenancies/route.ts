@@ -34,29 +34,25 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Generate payment records from start date through current month
+  // Generate payment records from start date through current month + 1
+  // Due date is always the 4th of each month
   const start = new Date(startDate);
   const now = new Date();
   const payments = [];
-  const current = new Date(start.getFullYear(), start.getMonth(), 1);
+  const current = new Date(start.getFullYear(), start.getMonth(), 4);
 
-  while (current <= now || (current.getMonth() === now.getMonth() && current.getFullYear() === now.getFullYear())) {
+  while (
+    current.getFullYear() < now.getFullYear() ||
+    (current.getFullYear() === now.getFullYear() && current.getMonth() <= now.getMonth() + 1)
+  ) {
     payments.push({
       tenancyId: tenancy.id,
       amount: monthlyRent,
-      dueDate: new Date(current),
+      dueDate: new Date(current.getFullYear(), current.getMonth(), 4),
       paidAmount: 0,
     });
     current.setMonth(current.getMonth() + 1);
   }
-
-  // Also add next month
-  payments.push({
-    tenancyId: tenancy.id,
-    amount: monthlyRent,
-    dueDate: new Date(current),
-    paidAmount: 0,
-  });
 
   if (payments.length > 0) {
     await prisma.payment.createMany({ data: payments });

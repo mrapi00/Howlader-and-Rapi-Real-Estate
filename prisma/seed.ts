@@ -101,15 +101,16 @@ async function main() {
         apartmentId: apt2F.id,
         tenantId: tenant.id,
         monthlyRent: 1200,
-        startDate: new Date(2024, 0, 1), // Jan 1, 2024
+        startDate: new Date(2026, 0, 4), // Jan 4, 2026
         isActive: true,
       },
     });
 
-    // Generate payment records from Jan 2024 through current month + 1
+    // Generate payment records — due on the 4th of each month
+    // From Jan 2026 through current month + 1
     const payments = [];
     const now = new Date();
-    const current = new Date(2024, 0, 1);
+    const current = new Date(2026, 0, 4); // Jan 4, 2026
 
     while (
       current.getFullYear() < now.getFullYear() ||
@@ -118,7 +119,7 @@ async function main() {
       payments.push({
         tenancyId: tenancy.id,
         amount: 1200,
-        dueDate: new Date(current),
+        dueDate: new Date(current.getFullYear(), current.getMonth(), 4),
         paidAmount: 0,
       });
       current.setMonth(current.getMonth() + 1);
