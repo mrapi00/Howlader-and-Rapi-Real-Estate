@@ -1,37 +1,99 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
+
+  const doLogin = useCallback(async (loginEmail: string, loginPassword: string) => {
     setLoading(true);
     setError("");
 
     const result = await signIn("credentials", {
       redirect: false,
-      email,
-      password,
+      email: loginEmail,
+      password: loginPassword,
     });
 
     if (result?.error) {
       setError("Invalid email or password");
       setLoading(false);
     } else {
+      // Save credentials for biometric autofill on next visit (Android Chrome)
+      if (window.PasswordCredential) {
+        try {
+          const cred = new PasswordCredential({
+            id: loginEmail,
+            password: loginPassword,
+            name: loginEmail,
+          });
+          await navigator.credentials.store(cred);
+        } catch {}
+      }
       router.push("/dashboard");
     }
+  }, [router]);
+
+  // On mount, try to retrieve saved credentials (triggers Face ID / fingerprint on Android)
+  useEffect(() => {
+    if (status !== "unauthenticated") return;
+
+    async function tryAutoLogin() {
+      if (!window.PasswordCredential || !navigator.credentials) return;
+
+      try {
+        const cred = await navigator.credentials.get({
+          password: true,
+          mediation: "optional",
+        } as CredentialRequestOptions);
+
+        if (cred && cred.type === "password") {
+          const pwCred = cred as PasswordCredential;
+          if (pwCred.id && pwCred.password) {
+            setEmail(pwCred.id);
+            setPassword(pwCred.password);
+            doLogin(pwCred.id, pwCred.password);
+          }
+        }
+      } catch {}
+    }
+
+    tryAutoLogin();
+  }, [status, doLogin]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await doLogin(email, password);
   };
+
+  // Show nothing while checking session or auto-logging in
+  if (status === "loading" || status === "authenticated") {
+    return (
+      <div className="min-h-screen bg-hero-pattern flex items-center justify-center">
+        <svg className="w-8 h-8 animate-spin text-brand-500" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-hero-pattern flex items-center justify-center px-4 relative overflow-hidden">
@@ -76,6 +138,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-field pl-10"
                   placeholder="you@example.com"
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -90,6 +153,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-field pl-10 pr-10"
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                   required
                 />
                 <button
