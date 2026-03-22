@@ -173,7 +173,7 @@ export default function PropertiesPage() {
                   return (
                     <Link
                       key={apt.id}
-                      href={`/dashboard/properties/${prop.id}`}
+                      href={`/dashboard/properties/${prop.id}?apt=${apt.id}`}
                       className={`group/unit relative p-2.5 rounded-xl border text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                         activeTenancy
                           ? "bg-emerald-50/80 border-emerald-200 hover:border-emerald-300"

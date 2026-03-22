@@ -20,39 +20,19 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(properties);
 }
 
-// POST: authenticate tenant by building + apt + DOB
+// POST: authenticate tenant by building + apt + name (first 3 chars of first name)
 export async function POST(req: NextRequest) {
-  const { apartmentId, dob } = await req.json();
+  const { apartmentId, name } = await req.json();
 
-  // Parse DOB - expect MM/DD/YYYY or YYYY-MM-DD
-  let year: number, month: number, day: number;
-  if (dob.includes("/")) {
-    const parts = dob.split("/");
-    month = parseInt(parts[0]);
-    day = parseInt(parts[1]);
-    year = parseInt(parts[2]);
-  } else {
-    const parts = dob.split("-");
-    year = parseInt(parts[0]);
-    month = parseInt(parts[1]);
-    day = parseInt(parts[2]);
+  if (!apartmentId || !name) {
+    return NextResponse.json({ error: "Building, apartment, and name are required." }, { status: 400 });
   }
 
-  // Use UTC dates to avoid timezone issues
-  const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-  const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-
-  // Find active tenancy for this apartment with matching DOB
+  // Find active tenancy for this apartment
   const tenancy = await prisma.tenancy.findFirst({
     where: {
       apartmentId,
       isActive: true,
-      tenant: {
-        dob: {
-          gte: startOfDay,
-          lt: endOfDay,
-        },
-      },
     },
     include: {
       tenant: true,
@@ -73,7 +53,14 @@ export async function POST(req: NextRequest) {
   });
 
   if (!tenancy) {
-    return NextResponse.json({ error: "No matching tenant found. Please check your information." }, { status: 404 });
+    return NextResponse.json({ error: "No active tenant found for this apartment." }, { status: 404 });
+  }
+
+  // Verify name: match first 3 characters of first name (case-insensitive)
+  const inputFirst3 = name.trim().split(/\s+/)[0].slice(0, 3).toLowerCase();
+  const tenantFirst3 = tenancy.tenant.name.trim().split(/\s+/)[0].slice(0, 3).toLowerCase();
+  if (inputFirst3.length < 3 || inputFirst3 !== tenantFirst3) {
+    return NextResponse.json({ error: "Name does not match. Please check your information." }, { status: 404 });
   }
 
   // Calculate balance

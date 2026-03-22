@@ -74,7 +74,8 @@ export async function POST(req: NextRequest) {
 
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       // Production: upload to Vercel Blob (private store)
-      const blob = await put(`documents/${tenancyId}/${Date.now()}-${file.name}`, file, {
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const blob = await put(`documents/${tenancyId}/${uniqueSuffix}-${file.name}`, file, {
         access: "private",
       });
       filePath = blob.url;
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
       await mkdir(uploadsDir, { recursive: true });
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const fileName = `${Date.now()}-${file.name}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name}`;
       filePath = path.join("uploads", tenancyId, fileName);
       await writeFile(path.join(process.cwd(), filePath), buffer);
     }

@@ -61,7 +61,7 @@ export default function TenantPortalPage() {
   const [apartments, setApartments] = useState<ApartmentOption[]>([]);
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
-  const [dob, setDob] = useState("");
+  const [verifyName, setVerifyName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [tenantData, setTenantData] = useState<TenantData | null>(null);
@@ -80,6 +80,9 @@ export default function TenantPortalPage() {
 
   // Cancel confirmation state
   const [cancelConfirm, setCancelConfirm] = useState<{ submissionId: string; paymentId: string } | null>(null);
+
+  // Document viewer state (for in-app viewing on mobile)
+  const [viewingDoc, setViewingDoc] = useState<{ id: string; name: string; fileType: string } | null>(null);
 
   // Install app state
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
@@ -124,11 +127,11 @@ export default function TenantPortalPage() {
 
     const saved = sessionStorage.getItem("tenantSession");
     if (saved) {
-      const { apartmentId, dob: savedDob } = JSON.parse(saved);
+      const { apartmentId, name: savedName } = JSON.parse(saved);
       fetch("/api/tenant-portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apartmentId, dob: savedDob }),
+        body: JSON.stringify({ apartmentId, name: savedName }),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
@@ -159,7 +162,7 @@ export default function TenantPortalPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         apartmentId: selectedApartment,
-        dob,
+        name: verifyName,
       }),
     });
 
@@ -171,7 +174,7 @@ export default function TenantPortalPage() {
       setTenantData(null);
     } else {
       setTenantData(data);
-      sessionStorage.setItem("tenantSession", JSON.stringify({ apartmentId: selectedApartment, dob }));
+      sessionStorage.setItem("tenantSession", JSON.stringify({ apartmentId: selectedApartment, name: verifyName }));
     }
   };
 
@@ -287,7 +290,7 @@ export default function TenantPortalPage() {
               <button
                 onClick={() => {
                   setTenantData(null);
-                  setDob("");
+                  setVerifyName("");
                   setDateFrom("");
                   setDateTo("");
                   setCurrentPage(1);
@@ -701,11 +704,10 @@ export default function TenantPortalPage() {
               </div>
               <div className="space-y-2">
                 {tenantData.documents.map((doc) => (
-                  <a
+                  <button
                     key={doc.id}
-                    href={`/api/documents?id=${doc.id}`}
-                    target="_blank"
-                    className="flex items-center gap-3 bg-gray-50 rounded-xl p-3.5 hover:bg-brand-50/50 transition-colors group"
+                    onClick={() => setViewingDoc(doc)}
+                    className="flex items-center gap-3 bg-gray-50 rounded-xl p-3.5 hover:bg-brand-50/50 transition-colors group w-full text-left"
                   >
                     <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center border border-gray-200 group-hover:border-brand-200 transition-colors">
                       {doc.fileType.includes("pdf") ? (
@@ -722,8 +724,30 @@ export default function TenantPortalPage() {
                         {new Date(doc.createdAt).toLocaleDateString()}
                       </p>
                     </div>
-                  </a>
+                  </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Document Viewer Modal */}
+          {viewingDoc && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+                <p className="text-sm font-semibold text-gray-800 truncate flex-1 mr-3">{viewingDoc.name}</p>
+                <button
+                  onClick={() => setViewingDoc(null)}
+                  className="w-9 h-9 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto">
+                <iframe
+                  src={`/api/documents?id=${viewingDoc.id}`}
+                  className="w-full h-full min-h-[80vh]"
+                  title={viewingDoc.name}
+                />
               </div>
             </div>
           )}
@@ -760,7 +784,7 @@ export default function TenantPortalPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Tenant Portal</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Select your building, apartment, and enter your date of birth
+              Select your building, apartment, and enter your full name
             </p>
           </div>
 
@@ -814,14 +838,15 @@ export default function TenantPortalPage() {
             </div>
 
             <div>
-              <label className="label">Date of Birth</label>
+              <label className="label">Full Name</label>
               <div className="relative">
-                <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
+                  type="text"
+                  value={verifyName}
+                  onChange={(e) => setVerifyName(e.target.value)}
                   className="input-field pl-10"
+                  placeholder="Enter your full name"
                   required
                 />
               </div>

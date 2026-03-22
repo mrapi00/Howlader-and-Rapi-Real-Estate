@@ -149,13 +149,18 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, paidAmount, paidDate, note } = await req.json();
+  const { id, amount, paidAmount, paidDate, note } = await req.json();
 
   // Get the current payment to calculate the difference
   const existing = await prisma.payment.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const updateData: Record<string, unknown> = { paidAmount };
+
+  // Allow editing the due amount (e.g. for REMAINING BALANCE rows)
+  if (amount !== undefined) {
+    updateData.amount = amount;
+  }
 
   // If paidAmount is 0, clear the paidDate; otherwise set it
   if (paidAmount === 0) {
@@ -188,4 +193,20 @@ export async function PATCH(req: NextRequest) {
   }
 
   return NextResponse.json(payment);
+}
+
+// Delete a payment row
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+  const existing = await prisma.payment.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await prisma.payment.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -73,8 +73,10 @@ interface PropertyDetail {
 
 export default function PropertyDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const initialApt = searchParams.get("apt");
   const [property, setProperty] = useState<PropertyDetail | null>(null);
-  const [selectedApt, setSelectedApt] = useState<string | null>(null);
+  const [selectedApt, setSelectedApt] = useState<string | null>(initialApt);
   const [showAddTenant, setShowAddTenant] = useState(false);
   const [showRecordPayment, setShowRecordPayment] = useState<string | null>(null);
   const [showAddUnit, setShowAddUnit] = useState(false);
@@ -103,9 +105,10 @@ export default function PropertyDetailPage() {
       .then((r) => r.json())
       .then((data) => {
         setProperty(data);
-        if (!selectedApt && data.apartments.length > 0) {
-          setSelectedApt(data.apartments[0].id);
-        }
+        setSelectedApt((prev) => {
+          if (prev && data.apartments.some((a: { id: string }) => a.id === prev)) return prev;
+          return data.apartments.length > 0 ? data.apartments[0].id : null;
+        });
       });
   };
 

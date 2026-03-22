@@ -7,6 +7,7 @@ import {
   Calendar,
   ChevronRight,
   DollarSign,
+  Home,
   Mail,
   Phone,
   Plus,
@@ -54,6 +55,7 @@ export default function TenantsPage() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedApartmentId, setSelectedApartmentId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchTenants = () => {
     fetch("/api/tenants")
@@ -108,8 +110,23 @@ export default function TenantsPage() {
     );
   }
 
-  const activeTenants = tenants.filter((t) => t.tenancies.some((tc) => tc.isActive));
-  const archivedTenants = tenants.filter((t) => !t.tenancies.some((tc) => tc.isActive));
+  const matchesSearch = (t: TenantRow) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      t.name.toLowerCase().includes(q) ||
+      t.tenancies.some(
+        (tc) =>
+          tc.apartment.property.address.toLowerCase().includes(q) ||
+          tc.apartment.unit.toLowerCase().includes(q)
+      ) ||
+      (t.phone && t.phone.includes(q)) ||
+      (t.email && t.email.toLowerCase().includes(q))
+    );
+  };
+
+  const activeTenants = tenants.filter((t) => t.tenancies.some((tc) => tc.isActive) && matchesSearch(t));
+  const archivedTenants = tenants.filter((t) => !t.tenancies.some((tc) => tc.isActive) && matchesSearch(t));
   const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
 
   return (
@@ -128,6 +145,25 @@ export default function TenantsPage() {
           <UserPlus className="w-4 h-4" />
           Add New Tenant
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="input-field pl-10 w-full"
+          placeholder="Search by name, address, unit, phone, or email..."
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 btn-ghost p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Add Tenant Panel */}
@@ -249,65 +285,87 @@ export default function TenantsPage() {
         </div>
       )}
 
-      {/* Active Tenants */}
-      <div className="glass-card-solid overflow-hidden mb-6">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-          <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
-            <Users className="w-4 h-4 text-emerald-600" />
-          </div>
-          <h2 className="text-sm font-bold text-gray-800">
-            Active Tenants ({activeTenants.length})
-          </h2>
-        </div>
+      {/* Active Tenants - Grouped by Property */}
+      {(() => {
+        const grouped = new Map<string, { address: string; tenants: TenantRow[] }>();
+        activeTenants.forEach((t) => {
+          const activeTenancy = t.tenancies.find((tc) => tc.isActive)!;
+          const addr = activeTenancy.apartment.property.address;
+          if (!grouped.has(addr)) grouped.set(addr, { address: addr, tenants: [] });
+          grouped.get(addr)!.tenants.push(t);
+        });
 
-        {activeTenants.length === 0 ? (
-          <div className="text-center py-12">
-            <User className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">No active tenants</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {activeTenants.map((t) => {
-              const activeTenancy = t.tenancies.find((tc) => tc.isActive)!;
-              return (
-                <Link
-                  key={t.id}
-                  href={`/dashboard/tenants/${t.id}`}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-brand-50/50 transition-colors group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center">
-                      <User className="w-5 h-5 text-brand-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-800 group-hover:text-brand-600 transition-colors">
-                        {t.name}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                        <span className="flex items-center gap-1 text-xs text-gray-500">
-                          <Building2 className="w-3 h-3" />
-                          {activeTenancy.apartment.property.address} - Apt {activeTenancy.apartment.unit}
-                        </span>
-                        <span className="flex items-center gap-1 text-xs text-gray-500">
-                          <DollarSign className="w-3 h-3" />
-                          ${activeTenancy.monthlyRent.toLocaleString()}/mo
-                        </span>
-                        {t.phone && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
-                            <Phone className="w-3 h-3" />
-                            {t.phone}
+        if (activeTenants.length === 0) {
+          return (
+            <div className="glass-card-solid overflow-hidden mb-6">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                </div>
+                <h2 className="text-sm font-bold text-gray-800">Active Tenants (0)</h2>
+              </div>
+              <div className="text-center py-12">
+                <User className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-400 text-sm">No active tenants</p>
+              </div>
+            </div>
+          );
+        }
+
+        return Array.from(grouped.values()).map((group) => (
+          <div key={group.address} className="glass-card-solid overflow-hidden mb-4">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+              <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                <Building2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <h2 className="text-sm font-bold text-gray-800">
+                {group.address}
+              </h2>
+              <span className="text-xs text-gray-400">{group.tenants.length} tenant{group.tenants.length !== 1 ? "s" : ""}</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {group.tenants.map((t) => {
+                const activeTenancy = t.tenancies.find((tc) => tc.isActive)!;
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/dashboard/tenants/${t.id}`}
+                    className="flex items-center justify-between px-6 py-4 hover:bg-brand-50/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center">
+                        <User className="w-5 h-5 text-brand-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-800 group-hover:text-brand-600 transition-colors">
+                          {t.name}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Home className="w-3 h-3" />
+                            Apt {activeTenancy.apartment.unit}
                           </span>
-                        )}
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <DollarSign className="w-3 h-3" />
+                            ${activeTenancy.monthlyRent.toLocaleString()}/mo
+                          </span>
+                          {t.phone && (
+                            <span className="flex items-center gap-1 text-xs text-gray-400">
+                              <Phone className="w-3 h-3" />
+                              {t.phone}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-500 transition-colors" />
-                </Link>
-              );
-            })}
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-500 transition-colors" />
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
+        ));
+      })()}
 
       {/* Archived Tenants */}
       {archivedTenants.length > 0 && (

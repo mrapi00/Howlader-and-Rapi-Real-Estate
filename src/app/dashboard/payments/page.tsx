@@ -13,6 +13,7 @@ import {
   DollarSign,
   Edit3,
   Filter,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -51,9 +52,10 @@ interface PaymentRow {
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "late" | "paid">("all");
+  const [filter, setFilter] = useState<"all" | "upcoming" | "late" | "paid">("all");
   const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editDueAmount, setEditDueAmount] = useState("");
   const [editPaidAmount, setEditPaidAmount] = useState("");
   const [editPaidDate, setEditPaidDate] = useState("");
   const [editPaymentNote, setEditPaymentNote] = useState("");
@@ -135,6 +137,7 @@ export default function PaymentsPage() {
 
   const startEdit = (p: PaymentRow) => {
     setEditingPaymentId(p.id);
+    setEditDueAmount(String(p.amount));
     setEditPaidAmount(String(p.paidAmount));
     setEditPaidDate(p.paidDate ? p.paidDate.split("T")[0] : new Date().toISOString().split("T")[0]);
     setEditPaymentNote(p.note || "");
@@ -147,12 +150,19 @@ export default function PaymentsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: editingPaymentId,
+        amount: parseFloat(editDueAmount),
         paidAmount: parseFloat(editPaidAmount),
         paidDate: parseFloat(editPaidAmount) > 0 ? editPaidDate : null,
         note: editPaymentNote || null,
       }),
     });
     setEditingPaymentId(null);
+    fetchPayments();
+  };
+
+  const deletePayment = async (id: string) => {
+    if (!confirm("Delete this payment row? This cannot be undone.")) return;
+    await fetch(`/api/payments?id=${id}`, { method: "DELETE" });
     fetchPayments();
   };
 
@@ -171,6 +181,7 @@ export default function PaymentsPage() {
   const filtered = payments.filter((p) => {
     const balance = p.amount - p.paidAmount;
     const isPast = new Date(p.dueDate) < now;
+    if (filter === "upcoming") return balance > 0 && !isPast;
     if (filter === "late") return balance > 0 && isPast;
     if (filter === "paid") return balance === 0;
     return true;
@@ -385,29 +396,43 @@ export default function PaymentsPage() {
       <div className="glass-card-solid overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap justify-between items-center gap-3">
           <div className="flex gap-2">
-            {(["all", "late", "paid"] as const).map((f) => (
+            {(["all", "upcoming", "late", "paid"] as const).map((f) => (
               <button
                 key={f}
-                onClick={() => { setFilter(f); setCurrentPage(1); }}
+                onClick={() => { setFilter(f); setCurrentPage(1); setSelectedPayments(new Set()); }}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                   filter === f
                     ? "bg-brand-500 text-white shadow-md shadow-brand-500/25"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {f === "all" ? "All" : f === "late" ? "Late / Partial" : "Paid"}
+                {f === "all" ? "All" : f === "upcoming" ? "Upcoming" : f === "late" ? "Late / Partial" : "Paid"}
               </button>
             ))}
           </div>
-          {selectedPayments.size > 0 && (
-            <button
-              onClick={markSelectedAsPaid}
-              className="btn-success flex items-center gap-2 text-xs animate-slide-up"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Mark {selectedPayments.size} Selected as Paid
-            </button>
-          )}
+          <div className="flex gap-2">
+            {filter === "upcoming" && dateFiltered.length > 0 && (
+              <button
+                onClick={() => {
+                  const upcomingIds = dateFiltered.filter((p) => p.amount - p.paidAmount > 0).map((p) => p.id);
+                  setSelectedPayments(new Set(upcomingIds));
+                }}
+                className="btn-ghost flex items-center gap-1.5 text-xs font-semibold text-brand-600"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Select All
+              </button>
+            )}
+            {selectedPayments.size > 0 && (
+              <button
+                onClick={markSelectedAsPaid}
+                className="btn-success flex items-center gap-2 text-xs animate-slide-up"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Mark {selectedPayments.size} as Paid
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -460,15 +485,21 @@ export default function PaymentsPage() {
                       <td className="py-3 px-4 text-gray-600">
                         {new Date(p.dueDate).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-4 text-right text-gray-800">
-                        ${p.amount.toLocaleString()}
+                      <td className="py-3 px-4 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editDueAmount}
+                          onChange={(e) => setEditDueAmount(e.target.value)}
+                          className="w-24 input-field text-right py-1.5 px-2 text-sm"
+                        />
                       </td>
                       <td className="py-3 px-4 text-right">
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          max={p.amount}
                           value={editPaidAmount}
                           onChange={(e) => setEditPaidAmount(e.target.value)}
                           className="w-24 input-field text-right py-1.5 px-2 text-sm"
@@ -476,7 +507,7 @@ export default function PaymentsPage() {
                         />
                       </td>
                       <td className="py-3 px-4 text-right font-semibold text-gray-500">
-                        ${(p.amount - parseFloat(editPaidAmount || "0")).toLocaleString()}
+                        ${(parseFloat(editDueAmount || "0") - parseFloat(editPaidAmount || "0")).toLocaleString()}
                       </td>
                       <td className="py-3 px-4">
                         <input
@@ -559,13 +590,22 @@ export default function PaymentsPage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => startEdit(p)}
-                        className="btn-ghost p-1.5 text-gray-400 hover:text-brand-600"
-                        title="Edit payment"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex gap-0.5 justify-center">
+                        <button
+                          onClick={() => startEdit(p)}
+                          className="btn-ghost p-1.5 text-gray-400 hover:text-brand-600"
+                          title="Edit payment"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deletePayment(p.id)}
+                          className="btn-ghost p-1.5 text-gray-400 hover:text-red-600"
+                          title="Delete payment row"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

@@ -1,8 +1,8 @@
 {
-  "name": "Howlader & Rapi Estate - Tenant Portal",
+  "name": "Howlader & Rapi Estate",
   "short_name": "H&R Estate",
-  "description": "Tenant portal for Howlader & Rapi Estate property management",
-  "start_url": "/tenant-portal",
+  "description": "Property management for Howlader & Rapi Estate",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f8f9fb",
   "theme_color": "#7c3aed",
