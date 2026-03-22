@@ -11,23 +11,25 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "mrapi105@gmail.com" },
-    update: {},
+    update: { avatar: "/avatars/mrapi.png" },
     create: {
       email: "mrapi105@gmail.com",
       password: hashedPassword,
       name: "Mrapi",
       role: "LANDLORD",
+      avatar: "/avatars/mrapi.png",
     },
   });
 
   await prisma.user.upsert({
     where: { email: "mhowlader33@yahoo.com" },
-    update: {},
+    update: { avatar: "/avatars/moslah.png" },
     create: {
       email: "mhowlader33@yahoo.com",
       password: hashedPassword,
       name: "M Howlader",
       role: "LANDLORD",
+      avatar: "/avatars/moslah.png",
     },
   });
 
