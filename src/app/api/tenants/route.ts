@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
           include: {
             apartment: { include: { property: true } },
             payments: { orderBy: { dueDate: "desc" } },
+            transactions: { orderBy: { paidDate: "desc" } },
             documents: { orderBy: { createdAt: "desc" } },
           },
         },
@@ -62,4 +63,19 @@ export async function PATCH(req: NextRequest) {
   });
 
   return NextResponse.json(tenant);
+}
+
+// Permanently delete a tenant and all related data
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+  // Cascade deletes handle payments, transactions, documents via schema
+  // But we need to delete tenancies first since Tenant->Tenancy has cascade
+  await prisma.tenant.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
 }

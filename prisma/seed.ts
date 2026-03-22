@@ -102,20 +102,19 @@ async function main() {
         tenantId: tenant.id,
         monthlyRent: 1200,
         startDate: new Date(2026, 0, 4), // Jan 4, 2026
+        occupancySince: new Date(2023, 0, 1), // In the house since January 2023
         isActive: true,
       },
     });
 
     // Generate payment records — due on the 4th of each month
-    // From Jan 2026 through current month + 1
+    // Only recent months: 3 months back through next month (about 5 records)
     const payments = [];
     const now = new Date();
-    const current = new Date(2026, 0, 4); // Jan 4, 2026
+    const current = new Date(now.getFullYear(), now.getMonth() - 3, 4);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 4);
 
-    while (
-      current.getFullYear() < now.getFullYear() ||
-      (current.getFullYear() === now.getFullYear() && current.getMonth() <= now.getMonth() + 1)
-    ) {
+    while (current <= end) {
       payments.push({
         tenancyId: tenancy.id,
         amount: 1200,

@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { apartmentId, tenantName, tenantDob, tenantPhone, tenantEmail, monthlyRent, startDate } =
+  const { apartmentId, tenantName, tenantDob, tenantPhone, tenantEmail, monthlyRent, startDate, occupancySince } =
     await req.json();
 
   // Create tenant
@@ -30,21 +30,19 @@ export async function POST(req: NextRequest) {
       tenantId: tenant.id,
       monthlyRent,
       startDate: new Date(startDate),
+      occupancySince: occupancySince ? new Date(occupancySince) : null,
       isActive: true,
     },
   });
 
-  // Generate payment records from start date through current month + 1
-  // Due date is always the 4th of each month
-  const start = new Date(startDate);
+  // Generate payment records from current month through next month only
+  // Past months are NOT auto-created — landlord can manually add past due months
   const now = new Date();
   const payments = [];
-  const current = new Date(start.getFullYear(), start.getMonth(), 4);
+  const current = new Date(now.getFullYear(), now.getMonth(), 4);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 4);
 
-  while (
-    current.getFullYear() < now.getFullYear() ||
-    (current.getFullYear() === now.getFullYear() && current.getMonth() <= now.getMonth() + 1)
-  ) {
+  while (current <= end) {
     payments.push({
       tenancyId: tenancy.id,
       amount: monthlyRent,
@@ -66,12 +64,13 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, monthlyRent, startDate, apartmentId } = await req.json();
+  const { id, monthlyRent, startDate, apartmentId, occupancySince } = await req.json();
 
   const updateData: Record<string, unknown> = {};
   if (monthlyRent !== undefined) updateData.monthlyRent = monthlyRent;
   if (startDate) updateData.startDate = new Date(startDate);
   if (apartmentId) updateData.apartmentId = apartmentId;
+  if (occupancySince !== undefined) updateData.occupancySince = occupancySince ? new Date(occupancySince) : null;
 
   const tenancy = await prisma.tenancy.update({
     where: { id },

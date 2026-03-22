@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Check,
@@ -42,7 +43,7 @@ interface PaymentRow {
   paidDate: string | null;
   note: string | null;
   tenancy: {
-    tenant: { name: string };
+    tenant: { id: string; name: string };
     apartment: { unit: string; property: { address: string } };
   };
 }
@@ -449,7 +450,9 @@ export default function PaymentsPage() {
                     <tr key={p.id} className="border-b border-brand-100 bg-brand-50/50">
                       <td className="py-3 px-3" />
                       <td className="py-3 px-4 font-semibold text-gray-800">
-                        {p.tenancy.tenant.name}
+                        <Link href={`/dashboard/tenants/${p.tenancy.tenant.id}`} className="text-brand-600 hover:text-brand-700 hover:underline transition-colors">
+                          {p.tenancy.tenant.name}
+                        </Link>
                       </td>
                       <td className="py-3 px-4 text-gray-600 text-xs">
                         {p.tenancy.apartment.property.address} - {p.tenancy.apartment.unit}
@@ -522,8 +525,10 @@ export default function PaymentsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-gray-800">
-                      {p.tenancy.tenant.name}
+                    <td className="py-3 px-4 font-semibold">
+                      <Link href={`/dashboard/tenants/${p.tenancy.tenant.id}`} className="text-brand-600 hover:text-brand-700 hover:underline transition-colors">
+                        {p.tenancy.tenant.name}
+                      </Link>
                     </td>
                     <td className="py-3 px-4 text-gray-500 text-xs">
                       {p.tenancy.apartment.property.address} - {p.tenancy.apartment.unit}

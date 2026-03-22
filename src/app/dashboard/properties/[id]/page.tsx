@@ -43,6 +43,13 @@ interface TenancyDetail {
     paidDate: string | null;
     note: string | null;
   }[];
+  transactions: {
+    id: string;
+    amount: number;
+    paidDate: string;
+    note: string | null;
+    createdAt: string;
+  }[];
   documents: {
     id: string;
     name: string;
@@ -80,6 +87,7 @@ export default function PropertyDetailPage() {
   const [tenantEmail, setTenantEmail] = useState("");
   const [monthlyRent, setMonthlyRent] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [occupancySince, setOccupancySince] = useState("");
 
   // Payment form
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -130,6 +138,7 @@ export default function PropertyDetailPage() {
         tenantEmail: tenantEmail || undefined,
         monthlyRent: parseFloat(monthlyRent),
         startDate,
+        occupancySince: occupancySince || undefined,
       }),
     });
     setTenantName("");
@@ -137,6 +146,7 @@ export default function PropertyDetailPage() {
     setTenantPhone("");
     setTenantEmail("");
     setMonthlyRent("");
+    setOccupancySince("");
     setShowAddTenant(false);
     fetchProperty();
   };
@@ -578,6 +588,48 @@ export default function PropertyDetailPage() {
                 })()}
               </div>
 
+              {/* Payment History */}
+              <div className="mb-6">
+                <h3 className="section-title mb-4">Payment History</h3>
+                {activeTenancy.transactions && activeTenancy.transactions.length > 0 ? (
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="table-header">
+                          <th className="text-left py-3 px-4">Date Paid</th>
+                          <th className="text-right py-3 px-4">Amount</th>
+                          <th className="text-left py-3 px-4">Note</th>
+                          <th className="text-left py-3 px-4">Recorded</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeTenancy.transactions.map((tx) => (
+                          <tr key={tx.id} className="table-row">
+                            <td className="py-3 px-4 text-gray-800 font-medium">
+                              {new Date(tx.paidDate).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4 text-right font-semibold text-emerald-600">
+                              ${tx.amount.toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4 text-gray-500 text-xs">
+                              {tx.note || "---"}
+                            </td>
+                            <td className="py-3 px-4 text-gray-400 text-xs">
+                              {new Date(tx.createdAt).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 rounded-xl border border-gray-200">
+                    <DollarSign className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-400 text-sm">No payments recorded yet</p>
+                  </div>
+                )}
+              </div>
+
               {/* Documents Section */}
               <div>
                 <h3 className="section-title mb-4">Documents</h3>
@@ -749,6 +801,16 @@ export default function PropertyDetailPage() {
                       onChange={(e) => setStartDate(e.target.value)}
                       className="input-field"
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Occupancy Since (optional)</label>
+                    <input
+                      type="date"
+                      value={occupancySince}
+                      onChange={(e) => setOccupancySince(e.target.value)}
+                      className="input-field"
+                      placeholder="When tenant moved in"
                     />
                   </div>
                 </div>

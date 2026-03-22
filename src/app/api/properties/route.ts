@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
               include: {
                 tenant: true,
                 payments: { orderBy: { dueDate: "desc" } },
+                transactions: { orderBy: { paidDate: "desc" } },
                 documents: { orderBy: { createdAt: "desc" } },
               },
             },

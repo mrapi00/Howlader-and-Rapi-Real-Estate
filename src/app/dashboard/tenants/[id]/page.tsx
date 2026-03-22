@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   DollarSign,
   Edit3,
   EyeOff,
@@ -40,6 +41,7 @@ interface TenantDetail {
     monthlyRent: number;
     startDate: string;
     endDate: string | null;
+    occupancySince: string | null;
     apartment: { id: string; unit: string; property: { id: string; address: string } };
     payments: {
       id: string;
@@ -49,6 +51,13 @@ interface TenantDetail {
       paidDate: string | null;
       note: string | null;
     }[];
+    transactions: {
+      id: string;
+      amount: number;
+      paidDate: string;
+      note: string | null;
+      createdAt: string;
+    }[];
     documents: {
       id: string;
       name: string;
@@ -57,6 +66,25 @@ interface TenantDetail {
       createdAt: string;
     }[];
   }[];
+}
+
+interface PendingSubmission {
+  id: string;
+  amount: number;
+  tenantName: string;
+  method: string;
+  status: string;
+  createdAt: string;
+  payment: {
+    id: string;
+    amount: number;
+    paidAmount: number;
+    dueDate: string;
+    tenancy: {
+      tenant: { name: string };
+      apartment: { unit: string; property: { address: string } };
+    };
+  };
 }
 
 interface PropertyOption {
@@ -97,6 +125,27 @@ export default function TenantDetailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmission[]>([]);
+  const [processingSubmissionId, setProcessingSubmissionId] = useState<string | null>(null);
+
+  const fetchPendingSubmissions = () => {
+    fetch(`/api/payment-submissions?tenantId=${params.id}`)
+      .then((r) => r.json())
+      .then(setPendingSubmissions);
+  };
+
+  const handleSubmissionAction = async (id: string, action: "confirm" | "reject") => {
+    setProcessingSubmissionId(id);
+    await fetch("/api/payment-submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    setProcessingSubmissionId(null);
+    fetchPendingSubmissions();
+    fetchTenant();
+  };
+
   const fetchTenant = () => {
     fetch(`/api/tenants?id=${params.id}`)
       .then((r) => r.json())
@@ -111,6 +160,7 @@ export default function TenantDetailPage() {
 
   useEffect(() => {
     fetchTenant();
+    fetchPendingSubmissions();
     fetch("/api/properties")
       .then((r) => r.json())
       .then(setProperties);
@@ -247,6 +297,12 @@ export default function TenantDetailPage() {
     fetchTenant();
   };
 
+  const deleteTenant = async () => {
+    if (!confirm("Are you sure you want to PERMANENTLY DELETE this tenant? This will remove all their payment records, documents, and tenancy history. This cannot be undone.")) return;
+    await fetch(`/api/tenants?id=${params.id}`, { method: "DELETE" });
+    router.push("/dashboard/tenants");
+  };
+
   if (!tenant) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -297,12 +353,21 @@ export default function TenantDetailPage() {
             </div>
             <h2 className="section-title">Tenant Information</h2>
           </div>
-          <button
-            onClick={() => setEditing(!editing)}
-            className={`btn-ghost text-xs font-semibold flex items-center gap-1.5 ${editing ? "text-red-500" : "text-brand-600"}`}
-          >
-            {editing ? <><X className="w-3.5 h-3.5" /> Cancel</> : <><Edit3 className="w-3.5 h-3.5" /> Edit</>}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditing(!editing)}
+              className={`btn-ghost text-xs font-semibold flex items-center gap-1.5 ${editing ? "text-red-500" : "text-brand-600"}`}
+            >
+              {editing ? <><X className="w-3.5 h-3.5" /> Cancel</> : <><Edit3 className="w-3.5 h-3.5" /> Edit</>}
+            </button>
+            <button
+              onClick={deleteTenant}
+              className="btn-ghost text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete Tenant
+            </button>
+          </div>
         </div>
 
         {editing ? (
@@ -366,10 +431,16 @@ export default function TenantDetailPage() {
                 <h2 className="text-base font-bold text-gray-900">
                   {activeTenancy.apartment.property.address} - Apt {activeTenancy.apartment.unit}
                 </h2>
-                <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {activeTenancy.occupancySince && (
+                    <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                      <Building2 className="w-3 h-3" />
+                      Occupant since {new Date(activeTenancy.occupancySince).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+                    </span>
+                  )}
                   <span className="flex items-center gap-1 text-xs text-gray-500">
                     <Calendar className="w-3 h-3" />
-                    Since {new Date(activeTenancy.startDate).toLocaleDateString()}
+                    Tracking since {new Date(activeTenancy.startDate).toLocaleDateString()}
                   </span>
                   <span className="flex items-center gap-1 text-xs text-gray-500">
                     <DollarSign className="w-3 h-3" />
@@ -778,6 +849,106 @@ export default function TenantDetailPage() {
               );
             })()}
           </div>
+
+          {/* Payment History (Transaction Log) */}
+          <div className="mb-6">
+            <h3 className="section-title mb-4">Payment History</h3>
+            {activeTenancy.transactions && activeTenancy.transactions.length > 0 ? (
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="table-header">
+                      <th className="text-left py-3 px-4">Date Paid</th>
+                      <th className="text-right py-3 px-4">Amount</th>
+                      <th className="text-left py-3 px-4">Note</th>
+                      <th className="text-left py-3 px-4">Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeTenancy.transactions.map((tx) => (
+                      <tr key={tx.id} className="table-row">
+                        <td className="py-3 px-4 text-gray-800 font-medium">
+                          {new Date(tx.paidDate).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-right font-semibold text-emerald-600">
+                          ${tx.amount.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 text-gray-500 text-xs">
+                          {tx.note || "---"}
+                        </td>
+                        <td className="py-3 px-4 text-gray-400 text-xs">
+                          {new Date(tx.createdAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 rounded-xl border border-gray-200">
+                <DollarSign className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-400 text-sm">No payments recorded yet</p>
+                <p className="text-gray-300 text-xs mt-1">Use &quot;Record Payment&quot; or mark payments as paid to see entries here</p>
+              </div>
+            )}
+          </div>
+
+          {/* Pending Payment Submissions */}
+          {pendingSubmissions.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <h3 className="section-title">Pending Payments</h3>
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                  {pendingSubmissions.length}
+                </span>
+              </div>
+              <div className="rounded-xl border border-amber-200 overflow-hidden">
+                <div className="divide-y divide-amber-50">
+                  {pendingSubmissions.map((s) => (
+                    <div key={s.id} className="px-5 py-4 flex items-center justify-between gap-4 bg-amber-50/40">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-800">
+                              ${s.amount.toLocaleString()}
+                            </p>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
+                              {s.method}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Submitted by {s.tenantName} on {new Date(s.createdAt).toLocaleDateString()}
+                            {" "}&middot; For {new Date(s.payment.dueDate).toLocaleDateString()} rent
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => handleSubmissionAction(s.id, "confirm")}
+                          disabled={processingSubmissionId === s.id}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleSubmissionAction(s.id, "reject")}
+                          disabled={processingSubmissionId === s.id}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Documents Section */}
           <div>

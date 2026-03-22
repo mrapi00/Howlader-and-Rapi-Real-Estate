@@ -46,18 +46,20 @@ model Tenant {
 }
 
 model Tenancy {
-  id          String     @id @default(cuid())
-  apartmentId String
-  apartment   Apartment  @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
-  tenantId    String
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  monthlyRent Float
-  startDate   DateTime
-  endDate     DateTime?
-  isActive    Boolean    @default(true)
-  payments    Payment[]
-  documents   Document[]
-  createdAt   DateTime   @default(now())
+  id              String               @id @default(cuid())
+  apartmentId     String
+  apartment       Apartment            @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  tenantId        String
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  monthlyRent     Float
+  startDate       DateTime
+  endDate         DateTime?
+  occupancySince  DateTime?
+  isActive        Boolean              @default(true)
+  payments        Payment[]
+  transactions    PaymentTransaction[]
+  documents       Document[]
+  createdAt       DateTime             @default(now())
 }
 
 model Payment {
@@ -93,5 +95,15 @@ model Document {
   filePath  String
   fileType  String
   isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PaymentTransaction {
+  id        String   @id @default(cuid())
+  tenancyId String
+  tenancy   Tenancy  @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  amount    Float
+  paidDate  DateTime
+  note      String?
   createdAt DateTime @default(now())
 }

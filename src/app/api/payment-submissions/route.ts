@@ -51,13 +51,19 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
-// GET: landlord fetches all pending submissions (auth required)
-export async function GET() {
+// GET: landlord fetches pending submissions (auth required)
+// Optional ?tenantId= to filter by tenant
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = req.nextUrl.searchParams.get("tenantId");
+
   const submissions = await prisma.paymentSubmission.findMany({
-    where: { status: "PENDING" },
+    where: {
+      status: "PENDING",
+      ...(tenantId ? { payment: { tenancy: { tenantId } } } : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: {
       payment: {
@@ -97,21 +103,52 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (action === "confirm") {
-    const newPaidAmount = Math.min(
-      submission.payment.amount,
-      submission.payment.paidAmount + submission.amount
-    );
+    const tenancyId = submission.payment.tenancyId;
 
+    // Gather all unpaid payments to build the FIFO plan
+    const allPayments = await prisma.payment.findMany({
+      where: { tenancyId },
+      orderBy: { dueDate: "asc" },
+    });
+
+    let remaining = submission.amount;
+    const appliedTo: string[] = [];
+    const paymentUpdates: { id: string; paidAmount: number }[] = [];
+
+    for (const payment of allPayments) {
+      if (remaining <= 0) break;
+      const owed = payment.amount - payment.paidAmount;
+      if (owed <= 0) continue;
+
+      const toApply = Math.min(remaining, owed);
+      paymentUpdates.push({ id: payment.id, paidAmount: payment.paidAmount + toApply });
+      remaining -= toApply;
+
+      const monthLabel = new Date(payment.dueDate).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      appliedTo.push(`$${toApply.toLocaleString()} to ${monthLabel}`);
+    }
+
+    const breakdown = `Applied: ${appliedTo.join(", ")}`;
+    const txNote = `${submission.method} from ${submission.tenantName} — ${breakdown}`;
+
+    // Execute everything in a single transaction — all or nothing
     await prisma.$transaction([
       prisma.paymentSubmission.update({
         where: { id },
         data: { status: "CONFIRMED" },
       }),
-      prisma.payment.update({
-        where: { id: submission.paymentId },
+      ...paymentUpdates.map((u) =>
+        prisma.payment.update({
+          where: { id: u.id },
+          data: { paidAmount: u.paidAmount, paidDate: new Date() },
+        })
+      ),
+      prisma.paymentTransaction.create({
         data: {
-          paidAmount: newPaidAmount,
+          tenancyId,
+          amount: submission.amount - remaining,
           paidDate: new Date(),
+          note: txNote,
         },
       }),
     ]);
