@@ -11,57 +11,6 @@ async function rentcastValuation(address: string, city: string, state: string, z
   return res.json();
 }
 
-// ── Auto-pay: runs only on the last day of the month ──
-async function runAutoPay() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  if (now.getDate() !== lastDay) {
-    return { autoPay: "Not the last day of the month, skipping" };
-  }
-
-  const monthStart = new Date(Date.UTC(year, month, 1));
-  const monthEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59));
-
-  const paidCount = await prisma.payment.count({
-    where: {
-      dueDate: { gte: monthStart, lte: monthEnd },
-      paidAmount: { gt: 0 },
-    },
-  });
-
-  if (paidCount > 0) {
-    return { autoPay: "Landlord was active this month, skipping", paidCount };
-  }
-
-  const unpaidPayments = await prisma.payment.findMany({
-    where: {
-      dueDate: { gte: monthStart, lte: monthEnd },
-      paidAmount: 0,
-      amount: { gt: 0 },
-    },
-  });
-
-  if (unpaidPayments.length === 0) {
-    return { autoPay: "No unpaid payments for this month" };
-  }
-
-  for (const payment of unpaidPayments) {
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        paidAmount: payment.amount,
-        paidDate: now,
-        note: "Auto-marked as paid (inactive month)",
-      },
-    });
-  }
-
-  return { autoPay: `Auto-marked ${unpaidPayments.length} payments as paid` };
-}
-
 // ── Valuation: fetch weekly via RentCast ──
 async function runValuation(apiKey: string) {
   const properties = await prisma.property.findMany({
@@ -119,14 +68,12 @@ async function runValuation(apiKey: string) {
   return results;
 }
 
-// ── Combined daily cron handler ──
+// ── Daily cron handler ──
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const autoPayResult = await runAutoPay();
 
   const apiKey = process.env.RENTCAST_API_KEY;
   let valuationResult;
@@ -136,5 +83,5 @@ export async function GET(request: Request) {
     valuationResult = "RENTCAST_API_KEY not configured, skipping valuation";
   }
 
-  return NextResponse.json({ autoPayResult, valuationResult });
+  return NextResponse.json({ valuationResult });
 }
