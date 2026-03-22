@@ -730,37 +730,69 @@ export default function TenantPortalPage() {
             </div>
           )}
 
-          {/* Document Viewer Modal */}
+          {/* Document Preview Modal */}
           {viewingDoc && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex flex-col">
-              {/* Fixed header - always visible */}
-              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shrink-0 safe-area-top">
-                <p className="text-sm font-semibold text-gray-800 truncate flex-1 mr-3">{viewingDoc.name}</p>
-                <button
-                  onClick={() => setViewingDoc(null)}
-                  className="w-11 h-11 bg-red-100 hover:bg-red-200 rounded-xl flex items-center justify-center text-red-600 transition-colors shrink-0 active:scale-95"
-                >
-                  <X className="w-6 h-6" strokeWidth={2.5} />
-                </button>
-              </div>
-              {/* Iframe container */}
-              <div className="flex-1 overflow-auto -webkit-overflow-scrolling-touch">
-                <iframe
-                  src={`/api/documents?id=${viewingDoc.id}`}
-                  className="w-full h-full border-0"
-                  style={{ minHeight: "calc(100vh - 60px)" }}
-                  title={viewingDoc.name}
-                />
-              </div>
-              {/* Floating close button at bottom for easy reach on mobile */}
-              <div className="shrink-0 px-4 py-3 bg-white/95 backdrop-blur border-t border-gray-200 safe-area-bottom">
-                <button
-                  onClick={() => setViewingDoc(null)}
-                  className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <X className="w-4 h-4" />
-                  Close Document
-                </button>
+            <div
+              className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+              onClick={() => setViewingDoc(null)}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="w-4 h-4 text-brand-500 shrink-0" />
+                    <p className="text-sm font-semibold text-gray-800 truncate">{viewingDoc.name}</p>
+                  </div>
+                  <button
+                    onClick={() => setViewingDoc(null)}
+                    className="w-9 h-9 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center text-gray-500 hover:text-red-600 transition-colors shrink-0 ml-3"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Content - image preview or PDF info */}
+                <div className="flex-1 overflow-auto p-5">
+                  {viewingDoc.fileType.startsWith("image/") ? (
+                    <img
+                      src={`/api/documents?id=${viewingDoc.id}`}
+                      alt={viewingDoc.name}
+                      className="w-full rounded-xl"
+                    />
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <FileText className="w-8 h-8 text-brand-500" />
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 mb-1">{viewingDoc.name}</p>
+                      <p className="text-xs text-gray-400 mb-5">
+                        {viewingDoc.fileType.includes("pdf") ? "PDF Document" : viewingDoc.fileType}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer actions */}
+                <div className="px-5 py-4 border-t border-gray-100 flex gap-3 shrink-0">
+                  <a
+                    href={`/api/documents?id=${viewingDoc.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary flex-1 flex items-center justify-center gap-2 py-2.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    Open / Download
+                  </a>
+                  <button
+                    onClick={() => setViewingDoc(null)}
+                    className="btn-secondary flex-1 py-2.5"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}
