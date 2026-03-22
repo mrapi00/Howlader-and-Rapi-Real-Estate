@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <path strokeLinecap="round" strokeLinejoin="round" d="M2 12l10-9 10 9M4 10v10a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h4a1 1 0 001-1V10" />
             </svg>
           </div>
-          <span className="text-sm font-bold">H&R Estate</span>
+          <span className="text-sm font-bold">Howlader Estate</span>
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2 12l10-9 10 9M4 10v10a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h4a1 1 0 001-1V10" />
               </svg>
             </div>
-            <span className="text-lg font-bold tracking-tight">H&R Estate</span>
+            <span className="text-lg font-bold tracking-tight">Howlader Estate</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}

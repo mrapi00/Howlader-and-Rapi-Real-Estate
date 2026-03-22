@@ -772,7 +772,7 @@ export default function TenantPortalPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2 12l10-9 10 9M4 10v10a1 1 0 001 1h4a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h4a1 1 0 001-1V10" />
               </svg>
             </div>
-            <span className="text-white text-xl font-bold tracking-tight">Howlader & Rapi Estate</span>
+            <span className="text-white text-xl font-bold tracking-tight">Howlader Estate</span>
           </Link>
         </div>
 

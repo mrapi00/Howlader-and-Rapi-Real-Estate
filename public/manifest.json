@@ -1,7 +1,7 @@
 {
-  "name": "Howlader & Rapi Estate",
-  "short_name": "H&R Estate",
-  "description": "Property management for Howlader & Rapi Estate",
+  "name": "Rent Tracker",
+  "short_name": "Rent Tracker",
+  "description": "Property management for Howlader Estate",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8f9fb",
