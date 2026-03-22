@@ -25,7 +25,7 @@ A full-stack property management app built for small landlords to track tenants,
 | Styling | Tailwind CSS 3 |
 | File Storage | Vercel Blob (production), local filesystem (dev) |
 | Hosting | Vercel |
-| Cron | Vercel Cron Jobs (daily property valuations) |
+| Cron | Vercel Cron Jobs (weekly property valuations via daily check) |
 | Icons | Lucide React |
 
 ## Project Structure
@@ -112,7 +112,7 @@ prisma generate && next build
 
 **Cron job** (configured in `vercel.json`):
 - `/api/cron/daily` runs once daily at 10:00 AM UTC
-- Fetches property value estimates from RentCast (throttled to once per 7 days per property)
+- Fetches property value estimates from RentCast, but skips any property valued within the last 7 days (effectively weekly per property, ~8 API calls/month for 8 properties)
 
 ## Database Schema
 
