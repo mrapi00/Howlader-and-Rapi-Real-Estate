@@ -1,34 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const RAPIDAPI_HOST = "redfin-scraper1.p.rapidapi.com";
-const BASE_URL = `https://${RAPIDAPI_HOST}/api/redfin`;
-
-async function redfinFetch(path: string, params: Record<string, string>, apiKey: string) {
-  const url = `${BASE_URL}${path}?${new URLSearchParams(params)}`;
+async function rentcastValuation(address: string, city: string, state: string, zip: string, apiKey: string) {
+  const fullAddress = `${address}, ${city}, ${state} ${zip}`;
+  const url = `https://api.rentcast.io/v1/avm/value?address=${encodeURIComponent(fullAddress)}`;
   const res = await fetch(url, {
-    headers: {
-      "x-rapidapi-key": apiKey,
-      "x-rapidapi-host": RAPIDAPI_HOST,
-    },
+    headers: { "X-Api-Key": apiKey },
   });
-  if (!res.ok) throw new Error(`Redfin API ${path} returned ${res.status}`);
+  if (!res.ok) throw new Error(`RentCast returned ${res.status}`);
   return res.json();
-}
-
-// Search by full address to get Redfin property ID directly
-async function lookupRedfinId(
-  address: string,
-  city: string,
-  state: string,
-  zipCode: string,
-  apiKey: string
-): Promise<number | null> {
-  const query = `${address}, ${city}, ${state} ${zipCode}`;
-  const locData = await redfinFetch("/locations", { query }, apiKey);
-  const loc = locData?.data?.locations?.[0];
-  if (!loc || !loc.region_id) return null;
-  return Number(loc.region_id);
 }
 
 // ── Auto-pay: runs only on the last day of the month ──
@@ -82,7 +62,7 @@ async function runAutoPay() {
   return { autoPay: `Auto-marked ${unpaidPayments.length} payments as paid` };
 }
 
-// ── Valuation: fetch daily for all properties ──
+// ── Valuation: fetch weekly via RentCast ──
 async function runValuation(apiKey: string) {
   const properties = await prisma.property.findMany({
     where: {
@@ -90,40 +70,33 @@ async function runValuation(apiKey: string) {
       state: { not: null },
       zipCode: { not: null },
     },
+    include: {
+      valuations: {
+        orderBy: { fetchedAt: "desc" },
+        take: 1,
+      },
+    },
   });
 
-  const results: { property: string; value?: number; error?: string }[] = [];
+  const results: { property: string; value?: number; skipped?: boolean; error?: string }[] = [];
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   for (const prop of properties) {
+    // Skip if last fetch was less than 7 days ago (stay within 50 calls/month)
+    const lastValuation = prop.valuations[0];
+    if (lastValuation && lastValuation.fetchedAt > sevenDaysAgo) {
+      results.push({ property: prop.address, skipped: true });
+      continue;
+    }
+
     try {
-      let redfinId = prop.redfinPropertyId;
+      const data = await rentcastValuation(
+        prop.address, prop.city!, prop.state!, prop.zipCode!, apiKey
+      );
 
-      // Look up Redfin ID by full address if not cached
-      if (!redfinId) {
-        redfinId = await lookupRedfinId(
-          prop.address, prop.city!, prop.state!, prop.zipCode!, apiKey
-        );
-        if (!redfinId) {
-          results.push({ property: prop.address, error: "Property not found on Redfin" });
-          continue;
-        }
-        await prisma.property.update({
-          where: { id: prop.id },
-          data: { redfinPropertyId: redfinId, redfinListingId: redfinId },
-        });
-      }
-
-      // Get valuation (property_id and listing_id are the same for address lookups)
-      const valData = await redfinFetch("/valuation", {
-        property_id: String(redfinId),
-        listing_id: String(redfinId),
-      }, apiKey);
-
-      const estimate = valData?.data?.predictedValue;
-
+      const estimate = data?.price;
       if (!estimate) {
-        // Redfin has no AVM for this property — skip to preserve any manual valuation
-        results.push({ property: prop.address, error: "No Redfin AVM available, keeping existing value" });
+        results.push({ property: prop.address, error: "No value estimate returned" });
         continue;
       }
 
@@ -155,12 +128,12 @@ export async function GET(request: Request) {
 
   const autoPayResult = await runAutoPay();
 
-  const apiKey = process.env.RAPIDAPI_KEY;
+  const apiKey = process.env.RENTCAST_API_KEY;
   let valuationResult;
   if (apiKey) {
     valuationResult = await runValuation(apiKey);
   } else {
-    valuationResult = "RAPIDAPI_KEY not configured, skipping valuation";
+    valuationResult = "RENTCAST_API_KEY not configured, skipping valuation";
   }
 
   return NextResponse.json({ autoPayResult, valuationResult });

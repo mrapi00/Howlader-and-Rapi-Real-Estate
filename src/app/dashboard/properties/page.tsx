@@ -170,7 +170,7 @@ export default function PropertiesPage() {
                   <p className="text-sm font-semibold text-violet-700">
                     ${Math.round(latestValuation.value).toLocaleString()}
                   </p>
-                  <p className="text-[10px] text-violet-400 ml-auto">Redfin Est.</p>
+                  <p className="text-[10px] text-violet-400 ml-auto">RentCast Est.</p>
                 </div>
               )}
 

@@ -18,16 +18,14 @@ model User {
 }
 
 model Property {
-  id                String      @id @default(cuid())
-  address           String      @unique
-  city              String?
-  state             String?
-  zipCode           String?
-  redfinPropertyId  Int?
-  redfinListingId   Int?
-  apartments        Apartment[]
-  valuations        PropertyValuation[]
-  createdAt         DateTime    @default(now())
+  id         String      @id @default(cuid())
+  address    String      @unique
+  city       String?
+  state      String?
+  zipCode    String?
+  apartments Apartment[]
+  valuations PropertyValuation[]
+  createdAt  DateTime    @default(now())
 }
 
 model Apartment {

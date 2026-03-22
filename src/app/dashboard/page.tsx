@@ -194,7 +194,7 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-gray-900">${portfolioValue.toLocaleString()}</p>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Based on Redfin AVM estimate</p>
+          <p className="text-xs text-gray-400 mt-2">Based on RentCast estimate</p>
         </div>
       )}
 
