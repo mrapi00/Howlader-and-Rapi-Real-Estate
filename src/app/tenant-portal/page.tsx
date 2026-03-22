@@ -732,22 +732,35 @@ export default function TenantPortalPage() {
 
           {/* Document Viewer Modal */}
           {viewingDoc && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex flex-col">
+              {/* Fixed header - always visible */}
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shrink-0 safe-area-top">
                 <p className="text-sm font-semibold text-gray-800 truncate flex-1 mr-3">{viewingDoc.name}</p>
                 <button
                   onClick={() => setViewingDoc(null)}
-                  className="w-9 h-9 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors shrink-0"
+                  className="w-11 h-11 bg-red-100 hover:bg-red-200 rounded-xl flex items-center justify-center text-red-600 transition-colors shrink-0 active:scale-95"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-6 h-6" strokeWidth={2.5} />
                 </button>
               </div>
-              <div className="flex-1 overflow-auto">
+              {/* Iframe container */}
+              <div className="flex-1 overflow-auto -webkit-overflow-scrolling-touch">
                 <iframe
                   src={`/api/documents?id=${viewingDoc.id}`}
-                  className="w-full h-full min-h-[80vh]"
+                  className="w-full h-full border-0"
+                  style={{ minHeight: "calc(100vh - 60px)" }}
                   title={viewingDoc.name}
                 />
+              </div>
+              {/* Floating close button at bottom for easy reach on mobile */}
+              <div className="shrink-0 px-4 py-3 bg-white/95 backdrop-blur border-t border-gray-200 safe-area-bottom">
+                <button
+                  onClick={() => setViewingDoc(null)}
+                  className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Close Document
+                </button>
               </div>
             </div>
           )}

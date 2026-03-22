@@ -105,7 +105,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${stats.totalMonthlyRent.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">${stats.totalMonthlyRent.toLocaleString()}<span className="text-sm font-semibold text-gray-400">/mo</span></p>
             </div>
           </div>
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
               <DollarSign className={`w-5 h-5 ${stats.totalOutstanding > 0 ? "text-red-600" : "text-emerald-600"}`} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Outstanding</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Outstanding</p>
               <p className={`text-2xl font-bold ${stats.totalOutstanding > 0 ? "text-red-600" : "text-emerald-600"}`}>
                 ${stats.totalOutstanding.toLocaleString()}
               </p>
