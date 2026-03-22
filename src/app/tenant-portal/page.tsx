@@ -83,6 +83,25 @@ export default function TenantPortalPage() {
 
   // Document viewer state (for in-app viewing on mobile)
   const [viewingDoc, setViewingDoc] = useState<{ id: string; name: string; fileType: string } | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadDoc = async (doc: { id: string; name: string }) => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/documents?id=${doc.id}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // Install app state
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
@@ -740,10 +759,14 @@ export default function TenantPortalPage() {
                 className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Header */}
+                {/* Header with close */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText className="w-4 h-4 text-brand-500 shrink-0" />
+                    {viewingDoc.fileType.startsWith("image/") ? (
+                      <Paperclip className="w-4 h-4 text-brand-500 shrink-0" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-brand-500 shrink-0" />
+                    )}
                     <p className="text-sm font-semibold text-gray-800 truncate">{viewingDoc.name}</p>
                   </div>
                   <button
@@ -754,7 +777,7 @@ export default function TenantPortalPage() {
                   </button>
                 </div>
 
-                {/* Content - image preview or PDF info */}
+                {/* Preview content */}
                 <div className="flex-1 overflow-auto p-5">
                   {viewingDoc.fileType.startsWith("image/") ? (
                     <img
@@ -768,24 +791,23 @@ export default function TenantPortalPage() {
                         <FileText className="w-8 h-8 text-brand-500" />
                       </div>
                       <p className="text-sm font-semibold text-gray-800 mb-1">{viewingDoc.name}</p>
-                      <p className="text-xs text-gray-400 mb-5">
+                      <p className="text-xs text-gray-400">
                         {viewingDoc.fileType.includes("pdf") ? "PDF Document" : viewingDoc.fileType}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Footer actions */}
+                {/* Footer — download saves file, no navigation */}
                 <div className="px-5 py-4 border-t border-gray-100 flex gap-3 shrink-0">
-                  <a
-                    href={`/api/documents?id=${viewingDoc.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary flex-1 flex items-center justify-center gap-2 py-2.5"
+                  <button
+                    onClick={() => downloadDoc(viewingDoc)}
+                    disabled={downloading}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2 py-2.5 disabled:opacity-50"
                   >
                     <Download className="w-4 h-4" />
-                    Open / Download
-                  </a>
+                    {downloading ? "Saving..." : "Save to Device"}
+                  </button>
                   <button
                     onClick={() => setViewingDoc(null)}
                     className="btn-secondary flex-1 py-2.5"
