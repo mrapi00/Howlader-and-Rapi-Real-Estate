@@ -37,13 +37,10 @@ export default function LoginPage() {
       setLoading(false);
     } else {
       // Save credentials for biometric autofill on next visit (Android Chrome)
-      if (window.PasswordCredential) {
+      if ((window as /* eslint-disable-line */ any).PasswordCredential) {
         try {
-          const cred = new PasswordCredential({
-            id: loginEmail,
-            password: loginPassword,
-            name: loginEmail,
-          });
+          const PC = (window as /* eslint-disable-line */ any).PasswordCredential;
+          const cred = new PC({ id: loginEmail, password: loginPassword, name: loginEmail });
           await navigator.credentials.store(cred);
         } catch {}
       }
@@ -56,7 +53,7 @@ export default function LoginPage() {
     if (status !== "unauthenticated") return;
 
     async function tryAutoLogin() {
-      if (!window.PasswordCredential || !navigator.credentials) return;
+      if (!(window as /* eslint-disable-line */ any).PasswordCredential || !navigator.credentials) return;
 
       try {
         const cred = await navigator.credentials.get({
@@ -65,7 +62,7 @@ export default function LoginPage() {
         } as CredentialRequestOptions);
 
         if (cred && cred.type === "password") {
-          const pwCred = cred as PasswordCredential;
+          const pwCred = cred as any;
           if (pwCred.id && pwCred.password) {
             setEmail(pwCred.id);
             setPassword(pwCred.password);
